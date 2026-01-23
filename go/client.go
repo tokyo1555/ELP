@@ -11,53 +11,125 @@ import (
 )
 
 func main() {
-	conn, _ := net.Dial("tcp", "127.0.0.1:8000")
+	// ===============================
+	// 0) Vérification des arguments
+	// ===============================
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run client.go <server_ip:port>")
+		fmt.Println("Exemple: go run client.go 127.0.0.1:8000")
+		return
+	}
+
+	serverAddr := os.Args[1]
+
+	// ===============================
+	// 1) Connexion au serveur
+	// ===============================
+	conn, err := net.Dial("tcp", serverAddr)
+	if err != nil {
+		fmt.Println("Erreur connexion:", err)
+		return
+	}
 	defer conn.Close()
 
-	r := bufio.NewReader(conn)
-	in := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(conn)
+	stdin := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Serveur:", must(r.ReadString('\n')))
+	// ===============================
+	// 2) Choix du filtre
+	// ===============================
+	fmt.Print("Serveur: ")
+	fmt.Print(must(reader.ReadString('\n')))
+
 	fmt.Print("Filtre: ")
-	filter := must(in.ReadString('\n'))
+	filter := must(stdin.ReadString('\n'))
 	conn.Write([]byte(filter))
 	filter = strings.TrimSpace(strings.ToLower(filter))
 
+	// ===============================
+	// 3) Radius si blur
+	// ===============================
 	if filter == "blur" {
-		fmt.Print("Serveur:", must(r.ReadString('\n')))
+		fmt.Print("Serveur: ")
+		fmt.Print(must(reader.ReadString('\n')))
+
 		fmt.Print("Radius: ")
-		conn.Write([]byte(must(in.ReadString('\n'))))
+		radius := must(stdin.ReadString('\n'))
+		conn.Write([]byte(radius))
 	}
 
-	must(r.ReadString('\n')) // OK
+	// ===============================
+	// 4) OK serveur
+	// ===============================
+	must(reader.ReadString('\n')) // "OK"
 
-	img, _ := os.ReadFile("input.jpg")
-	conn.Write([]byte(fmt.Sprintf("SIZE=%d\n", len(img))))
-	conn.Write(img)
-
-	if filter == "blur" {
-		fmt.Println("Durées:", must(r.ReadString('\n')))
-	}
-
-	sizeLineBytes, err := r.ReadBytes('\n')
+	// ===============================
+	// 5) Envoi image
+	// ===============================
+	imgBytes, err := os.ReadFile("input.jpg")
 	if err != nil {
-		panic(err)
+		fmt.Println("Erreur lecture input.jpg:", err)
+		return
+	}
+
+	conn.Write([]byte(fmt.Sprintf("SIZE=%d\n", len(imgBytes))))
+	conn.Write(imgBytes)
+	fmt.Println("📤 Image envoyée")
+
+	// ===============================
+	// 6) Durées si blur
+	// ===============================
+	if filter == "blur" {
+		fmt.Println("Durées:", must(reader.ReadString('\n')))
+	}
+
+	// ===============================
+	// 7) Lecture SIZE image résultat
+	// ===============================
+	sizeLineBytes, err := reader.ReadBytes('\n')
+	if err != nil {
+		fmt.Println("Erreur lecture SIZE:", err)
+		return
 	}
 	sizeLine := string(sizeLineBytes)
 
 	if !strings.HasPrefix(sizeLine, "SIZE=") {
-		panic("protocole cassé: SIZE attendu")
+		fmt.Println("Protocole invalide, SIZE attendu")
+		return
 	}
 
-	size, _ := strconv.Atoi(strings.TrimPrefix(strings.TrimSpace(sizeLine), "SIZE="))
+	sizeStr := strings.TrimPrefix(strings.TrimSpace(sizeLine), "SIZE=")
+	outSize, err := strconv.Atoi(sizeStr)
+	if err != nil || outSize <= 0 {
+		fmt.Println("Taille invalide:", sizeStr)
+		return
+	}
 
-	out := make([]byte, size)
-	io.ReadFull(conn, out)
+	// ===============================
+	// 8) Lecture image binaire
+	// ===============================
+	outBytes := make([]byte, outSize)
+	_, err = io.ReadFull(reader, outBytes)
+	if err != nil {
+		fmt.Println("Erreur lecture image:", err)
+		return
+	}
 
-	os.WriteFile("output.jpg", out, 0644)
-	fmt.Println("✅ Image reçue : output.jpg")
+	// ===============================
+	// 9) Sauvegarde image
+	// ===============================
+	err = os.WriteFile("output.jpg", outBytes, 0644)
+	if err != nil {
+		fmt.Println("Erreur écriture output.jpg:", err)
+		return
+	}
+
+	fmt.Println("✅ Image filtrée reçue : output.jpg")
 }
 
+// ===================================================
+// Fonction utilitaire : panic si erreur
+// ===================================================
 func must(s string, err error) string {
 	if err != nil {
 		panic(err)

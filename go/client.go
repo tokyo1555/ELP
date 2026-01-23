@@ -11,20 +11,15 @@ import (
 )
 
 func main() {
-	// ===============================
-	// 0) Vérification des arguments
-	// ===============================
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run client.go <server_ip:port>")
-		fmt.Println("Exemple: go run client.go 127.0.0.1:8000")
+		fmt.Println("Exemple: go run client.go 192.168.1.10:8000")
 		return
 	}
 
 	serverAddr := os.Args[1]
+	fmt.Println("Connexion au serveur", serverAddr)
 
-	// ===============================
-	// 1) Connexion au serveur
-	// ===============================
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		fmt.Println("Erreur connexion:", err)
@@ -35,37 +30,32 @@ func main() {
 	reader := bufio.NewReader(conn)
 	stdin := bufio.NewReader(os.Stdin)
 
-	// ===============================
-	// 2) Choix du filtre
-	// ===============================
+	// 1) Choix du filtre
 	fmt.Print("Serveur: ")
-	fmt.Print(must(reader.ReadString('\n')))
+	serverLine := must(reader.ReadString('\n'))
+	fmt.Print(serverLine)
 
 	fmt.Print("Filtre: ")
 	filter := must(stdin.ReadString('\n'))
-	conn.Write([]byte(filter))
 	filter = strings.TrimSpace(strings.ToLower(filter))
+	conn.Write([]byte(filter + "\n")) // <-- Important, ajouter le \n
 
-	// ===============================
-	// 3) Radius si blur
-	// ===============================
+	// 2) Radius si blur
 	if filter == "blur" {
 		fmt.Print("Serveur: ")
-		fmt.Print(must(reader.ReadString('\n')))
+		serverLine = must(reader.ReadString('\n'))
+		fmt.Print(serverLine)
 
 		fmt.Print("Radius: ")
 		radius := must(stdin.ReadString('\n'))
-		conn.Write([]byte(radius))
+		radius = strings.TrimSpace(radius)
+		conn.Write([]byte(radius + "\n")) // <-- Important, ajouter le \n
 	}
 
-	// ===============================
-	// 4) OK serveur
-	// ===============================
-	must(reader.ReadString('\n')) // "OK"
+	// 3) OK serveur
+	_ = must(reader.ReadString('\n')) // "OK"
 
-	// ===============================
-	// 5) Envoi image
-	// ===============================
+	// 4) Envoi image
 	imgBytes, err := os.ReadFile("input.jpg")
 	if err != nil {
 		fmt.Println("Erreur lecture input.jpg:", err)
@@ -76,16 +66,13 @@ func main() {
 	conn.Write(imgBytes)
 	fmt.Println("📤 Image envoyée")
 
-	// ===============================
-	// 6) Durées si blur
-	// ===============================
+	// 5) Durées si blur
 	if filter == "blur" {
-		fmt.Println("Durées:", must(reader.ReadString('\n')))
+		durations := must(reader.ReadString('\n'))
+		fmt.Println("Durées:", durations)
 	}
 
-	// ===============================
-	// 7) Lecture SIZE image résultat
-	// ===============================
+	// 6) Lecture SIZE image résultat
 	sizeLineBytes, err := reader.ReadBytes('\n')
 	if err != nil {
 		fmt.Println("Erreur lecture SIZE:", err)
@@ -105,9 +92,7 @@ func main() {
 		return
 	}
 
-	// ===============================
-	// 8) Lecture image binaire
-	// ===============================
+	// 7) Lecture image binaire
 	outBytes := make([]byte, outSize)
 	_, err = io.ReadFull(reader, outBytes)
 	if err != nil {
@@ -115,9 +100,7 @@ func main() {
 		return
 	}
 
-	// ===============================
-	// 9) Sauvegarde image
-	// ===============================
+	// 8) Sauvegarde image
 	err = os.WriteFile("output.jpg", outBytes, 0644)
 	if err != nil {
 		fmt.Println("Erreur écriture output.jpg:", err)
@@ -127,9 +110,9 @@ func main() {
 	fmt.Println("✅ Image filtrée reçue : output.jpg")
 }
 
-// ===================================================
-// Fonction utilitaire : panic si erreur
-// ===================================================
+// ============================
+// Fonction utilitaire
+// ============================
 func must(s string, err error) string {
 	if err != nil {
 		panic(err)

@@ -336,74 +336,6 @@ func MedianFilter(img image.Image, workers int) *image.RGBA {
 	return out
 }
 
-func BilateralFilter(img image.Image, workers int, sigmaSpatial, sigmaRange float64) *image.RGBA {
-	bounds := img.Bounds()
-	out := image.NewRGBA(bounds)
-
-	height := bounds.Max.Y - bounds.Min.Y
-	if workers > height {
-		workers = height
-	}
-	block := height / workers
-	var wg sync.WaitGroup
-
-	for i := 0; i < workers; i++ {
-		startY := bounds.Min.Y + i*block
-		endY := startY + block
-		if i == workers-1 {
-			endY = bounds.Max.Y
-		}
-
-		wg.Add(1)
-		go func(startY, endY int) {
-			defer wg.Done()
-			for y := startY; y < endY; y++ {
-				for x := bounds.Min.X; x < bounds.Max.X; x++ {
-					var sumR, sumG, sumB, sumW float64
-
-					r0, g0, b0, _ := img.At(x, y).RGBA()
-					I0 := float64(r0>>8)*0.299 + float64(g0>>8)*0.587 + float64(b0>>8)*0.114
-
-					for dy := -1; dy <= 1; dy++ {
-						for dx := -1; dx <= 1; dx++ {
-							nx, ny := x+dx, y+dy
-							if nx < bounds.Min.X || nx >= bounds.Max.X ||
-								ny < bounds.Min.Y || ny >= bounds.Max.Y {
-								continue
-							}
-
-							r, g, b, _ := img.At(nx, ny).RGBA()
-							I := float64(r>>8)*0.299 + float64(g>>8)*0.587 + float64(b>>8)*0.114
-
-							// Poids spatial (gaussien distance)
-							spatialW := math.Exp(-(float64(dx*dx + dy*dy)) / (2 * sigmaSpatial * sigmaSpatial))
-
-							// Poids range (gaussien intensité)
-							rangeW := math.Exp(-((I - I0) * (I - I0)) / (2 * sigmaRange * sigmaRange))
-
-							w := spatialW * rangeW
-							sumR += float64(r>>8) * w
-							sumG += float64(g>>8) * w
-							sumB += float64(b>>8) * w
-							sumW += w
-						}
-					}
-
-					out.Set(x, y, color.RGBA{
-						R: uint8(sumR / sumW),
-						G: uint8(sumG / sumW),
-						B: uint8(sumB / sumW),
-						A: 255,
-					})
-				}
-			}
-		}(startY, endY)
-	}
-
-	wg.Wait()
-	return out
-}
-
 func OilPaint(img image.Image, workers int, brushSize int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
@@ -460,6 +392,81 @@ func OilPaint(img image.Image, workers int, brushSize int) *image.RGBA {
 					}
 
 					out.Set(x, y, mostCommon)
+				}
+			}
+		}(startY, endY)
+	}
+
+	wg.Wait()
+	return out
+}
+
+// Pixelate applique un effet mosaïque (pixelation).
+func Pixelate(img image.Image, workers int, blockSize int) *image.RGBA {
+	bounds := img.Bounds()
+	out := image.NewRGBA(bounds)
+
+	if blockSize < 2 {
+		blockSize = 2
+	}
+
+	height := bounds.Max.Y - bounds.Min.Y
+	if workers > height {
+		workers = height
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	block := height / workers
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < workers; i++ {
+		startY := bounds.Min.Y + i*block
+		endY := startY + block
+		if i == workers-1 {
+			endY = bounds.Max.Y
+		}
+
+		wg.Add(1)
+		go func(startY, endY int) {
+			defer wg.Done()
+
+			// On avance par "pas de bloc" sur Y, ce qui limite le travail redondant.
+			for y := startY; y < endY; y += blockSize {
+				for x := bounds.Min.X; x < bounds.Max.X; x += blockSize {
+
+					var sumR, sumG, sumB uint32
+					var count uint32
+
+					// 1) moyenne du bloc
+					for yy := y; yy < y+blockSize && yy < bounds.Max.Y; yy++ {
+						for xx := x; xx < x+blockSize && xx < bounds.Max.X; xx++ {
+							r, g, b, _ := img.At(xx, yy).RGBA()
+							sumR += r >> 8
+							sumG += g >> 8
+							sumB += b >> 8
+							count++
+						}
+					}
+
+					if count == 0 {
+						continue
+					}
+
+					avg := color.RGBA{
+						R: uint8(sumR / count),
+						G: uint8(sumG / count),
+						B: uint8(sumB / count),
+						A: 255,
+					}
+
+					// 2) remplissage du bloc
+					for yy := y; yy < y+blockSize && yy < bounds.Max.Y; yy++ {
+						for xx := x; xx < x+blockSize && xx < bounds.Max.X; xx++ {
+							out.Set(xx, yy, avg)
+						}
+					}
 				}
 			}
 		}(startY, endY)

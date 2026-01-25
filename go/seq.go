@@ -206,52 +206,6 @@ func MedianFilterSeq(img image.Image) *image.RGBA {
 	return out
 }
 
-func BilateralFilterSeq(img image.Image, sigmaSpatial, sigmaRange float64) *image.RGBA {
-	bounds := img.Bounds()
-	out := image.NewRGBA(bounds)
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			var sumR, sumG, sumB, sumW float64
-
-			r0, g0, b0, _ := img.At(x, y).RGBA()
-			I0 := float64(r0>>8)*0.299 + float64(g0>>8)*0.587 + float64(b0>>8)*0.114
-
-			for dy := -1; dy <= 1; dy++ {
-				for dx := -1; dx <= 1; dx++ {
-					nx, ny := x+dx, y+dy
-					if nx < bounds.Min.X || nx >= bounds.Max.X || ny < bounds.Min.Y || ny >= bounds.Max.Y {
-						continue
-					}
-
-					r, g, b, _ := img.At(nx, ny).RGBA()
-					I := float64(r>>8)*0.299 + float64(g>>8)*0.587 + float64(b>>8)*0.114
-
-					// Poids spatial gaussien
-					spatialW := math.Exp(-(float64(dx*dx + dy*dy)) / (2 * sigmaSpatial * sigmaSpatial))
-
-					// Poids intensité gaussien
-					rangeW := math.Exp(-((I - I0) * (I - I0)) / (2 * sigmaRange * sigmaRange))
-
-					w := spatialW * rangeW
-					sumR += float64(r>>8) * w
-					sumG += float64(g>>8) * w
-					sumB += float64(b>>8) * w
-					sumW += w
-				}
-			}
-
-			out.Set(x, y, color.RGBA{
-				R: uint8(sumR / sumW),
-				G: uint8(sumG / sumW),
-				B: uint8(sumB / sumW),
-				A: 255,
-			})
-		}
-	}
-	return out
-}
-
 func OilPaintSeq(img image.Image, brushSize int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)

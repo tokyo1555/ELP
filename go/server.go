@@ -117,15 +117,18 @@ func handleConn(conn net.Conn, defaultWorkers int) {
 		out = Sobel(img, workers)
 	case "median":
 		out = MedianFilter(img, workers)
-	case "bilateral":
-		out = BilateralFilter(img, workers, 1.5, 25.0) // valeurs par défaut
+	case "pixelate":
+		if radius < 2 {
+			radius = 2
+		}
+		out = Pixelate(img, workers, radius)
 	case "oilpaint":
 		if radius < 3 {
 			radius = 5 // brushSize par défaut
 		}
 		out = OilPaint(img, workers, radius)
 	default:
-		writeError(conn, "unknown filter. use: grayscale|invert|blur|gaussian|sobel|median|bilateral|oilpaint")
+		writeError(conn, "unknown filter. use: grayscale|invert|blur|gaussian|sobel|median|pixelate|oilpaint")
 		return
 	}
 

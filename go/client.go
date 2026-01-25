@@ -20,8 +20,8 @@ var filters = []string{
 	"gaussian",
 	"sobel",
 	"median",
-	"bilateral",
 	"oilpaint",
+	"pixelate",
 }
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 
 	imgBytes, err := os.ReadFile(in)
 	if err != nil {
-		panic("cannot read input.jpg (place it next to client.go)")
+		panic("Je ne trouve pas l'image input.jpg")
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -39,10 +39,13 @@ func main() {
 
 	radius := 0
 	if filterName == "blur" {
-		radius = askInt(reader, "Choisis l'intensité du blur (radius >= 1): ", 1, 1000)
+		radius = askInt(reader, "Choisis l'intensité du blur (radius >= 1): ", 1, 999)
 	}
 	if filterName == "oilpaint" {
 		radius = askInt(reader, "Choisis la taille du pinceau OilPaint (brushSize >= 3): ", 3, 999)
+	}
+	if filterName == "pixelate" {
+		radius = askInt(reader, "Choisis la taille des blocs mosaïque (block >= 2):", 2, 999)
 	}
 
 	workers := askWorkers(reader)
@@ -74,7 +77,8 @@ func main() {
 
 func askServer(r *bufio.Reader) string {
 	for {
-		fmt.Print("Adresse du serveur (IP:PORT) [ex: 192.168.1.10:5000] : ")
+		fmt.Print("Place l'image dans ce dossier sous le nom de input.jpg.")
+		fmt.Print("Entre l'adresse du serveur (IP:PORT) [ex: 192.168.1.10:5000] : ")
 		s, _ := r.ReadString('\n')
 		s = strings.TrimSpace(s)
 		if s == "" {

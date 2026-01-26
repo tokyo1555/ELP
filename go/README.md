@@ -10,9 +10,6 @@ LES DOSSIERS:
 
 -Performance: Etude de performance
 
-1. complexité des filtres: 
-   lancer *go run filter_complexity parallel.go seq.go*
-
 2. taille de l'image:
 
 3. séquentiel VS parallélisme:  

@@ -1,4 +1,3 @@
-// client.go
 package main
 
 import (
@@ -32,7 +31,7 @@ var filters = []filterInfo{
 
 func main() {
 
-	//choix du fichier d'entrée
+	// choix du fichier d'entrée
 	candidats := []string{"input.jpg", "input.jpeg", "input.png"}
 	inPath := ""
 
@@ -56,7 +55,7 @@ func main() {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	//paramètres client
+	// paramètres client
 	serverAddr := askServer(reader)
 	filterName := askFilter(reader)
 
@@ -72,7 +71,7 @@ func main() {
 
 	workers := askWorkers(reader)
 
-	//connexion + requête
+	// connexion + requête
 	conn, err := net.DialTimeout("tcp", serverAddr, 10*time.Second)
 	if err != nil {
 		panic(err)
@@ -83,7 +82,7 @@ func main() {
 		panic(err)
 	}
 
-	//réponse + sauvegarde
+	// réponse + sauvegarde
 	respImg, err := readResponse(conn)
 	if err != nil {
 		panic(err)
@@ -211,6 +210,12 @@ func readResponse(conn net.Conn) ([]byte, error) {
 		return nil, fmt.Errorf("erreur serveur: %s", string(msg))
 	}
 
+	// OK: [u64 elapsedNs][u64 imgSize][imgBytes]
+	var elapsedNs uint64
+	if err := binary.Read(r, binary.BigEndian, &elapsedNs); err != nil {
+		return nil, err
+	}
+
 	var size uint64
 	if err := binary.Read(r, binary.BigEndian, &size); err != nil {
 		return nil, err
@@ -221,5 +226,12 @@ func readResponse(conn net.Conn) ([]byte, error) {
 
 	buf := make([]byte, size)
 	_, err := io.ReadFull(r, buf)
-	return buf, err
+	if err != nil {
+		return nil, err
+	}
+
+	d := time.Duration(elapsedNs) * time.Nanosecond
+	fmt.Printf("\nTemps d'exécution du filtre (côté serveur) : %s\n", d)
+
+	return buf, nil
 }

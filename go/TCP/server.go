@@ -1,4 +1,3 @@
-// server.go
 package main
 
 import (
@@ -15,16 +14,17 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func main() {
 
-	//Flags / configuration
+	// Flags / configuration
 	addr := flag.String("addr", ":5000", "adresse d'écoute, ex: :5000 ou 0.0.0.0:5000")
 	defaultWorkers := flag.Int("workers", 0, "workers par défaut si le client envoie 0 (0 => NumCPU)")
 	flag.Parse()
 
-	//TCP listen + accept
+	// TCP listen + accept
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
 		panic(err)
@@ -107,8 +107,10 @@ func handleConn(conn net.Conn, defaultWorkers int) {
 		}
 	}
 
-	// Appliquer filtre (PARALLELE)
+	// Appliquer filtre (PARALLELE) + mesurer temps
+	start := time.Now()
 	out, err := ApplyFilter(img, filterName, workers, radius)
+	elapsed := time.Since(start)
 	if err != nil {
 		writeError(conn, err.Error())
 		return
@@ -121,7 +123,8 @@ func handleConn(conn net.Conn, defaultWorkers int) {
 		return
 	}
 
-	_ = writeOK(conn, encoded)
+	// Envoyer OK + durée + image
+	_ = writeOKWithTime(conn, encoded, elapsed)
 }
 
 // Protocole (request/response)
@@ -174,6 +177,21 @@ func writeError(w io.Writer, msg string) {
 
 func writeOK(w io.Writer, img []byte) error {
 	if err := binary.Write(w, binary.BigEndian, uint32(0)); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.BigEndian, uint64(len(img))); err != nil {
+		return err
+	}
+	_, err := w.Write(img)
+	return err
+}
+
+func writeOKWithTime(w io.Writer, img []byte, d time.Duration) error {
+	// [u32 status=0][u64 elapsedNs][u64 imgSize][imgBytes]
+	if err := binary.Write(w, binary.BigEndian, uint32(0)); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.BigEndian, uint64(d.Nanoseconds())); err != nil {
 		return err
 	}
 	if err := binary.Write(w, binary.BigEndian, uint64(len(img))); err != nil {

@@ -231,7 +231,7 @@ func readResponse(conn net.Conn) ([]byte, error) {
 	}
 
 	d := time.Duration(elapsedNs) * time.Nanosecond
-	fmt.Printf("\nTemps d'exécution du filtre (côté serveur) : %s\n", d)
+	fmt.Printf("\nTemps d'exécution: %s\n", d)
 
 	return buf, nil
 }

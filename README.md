@@ -8,7 +8,7 @@ LES DOSSIERS:
       Coté serveur: lancer: *go run server.go parallel.go*
       Coté client: lancer *go run client.go*
 
--Performance: Etude de performance
+-performance: Etude de performance
 1. taille de l'image: analyser l’impact de la taille de l’image sur le temps d’exécution des filtres.
    lancer *go run image_size.go parallel.go seq.go*
 

@@ -249,7 +249,6 @@ func OilPaintSeq(img image.Image, brushSize int) *image.RGBA {
 	}
 	return out
 }
-
 func PixelateSeq(img image.Image, blockSize int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)

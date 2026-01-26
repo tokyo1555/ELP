@@ -1,3 +1,4 @@
+// parallel.go
 package main
 
 import (
@@ -8,26 +9,45 @@ import (
 	"sync"
 )
 
-// Grayscale
+//
+// =========================
+// OUTILS COMMUNS
+// =========================
+//
+
+// splitWorkers adapte le nombre de workers à la hauteur de l'image et calcule un découpage par bandes horizontales.
+func splitWorkers(bounds image.Rectangle, workers int) (w int, block int, height int) {
+	height = bounds.Max.Y - bounds.Min.Y
+
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > height {
+		workers = height
+	}
+	block = height / workers
+	return workers, block, height
+}
+
+//
+// =========================
+// FILTRES "PIXEL PAR PIXEL"
+// (un pixel de sortie dépend surtout du pixel d'entrée au même endroit)
+// =========================
+//
+
+// Grayscale convertit l'image en niveaux de gris en parallèle.
 func Grayscale(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
 
-	height := bounds.Max.Y - bounds.Min.Y
-	if workers > height {
-		workers = height
-	}
-	if workers < 1 {
-		workers = 1
-	}
-	block := height / workers
-
+	w, block, _ := splitWorkers(bounds, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < w; i++ {
 		startY := bounds.Min.Y + i*block
 		endY := startY + block
-		if i == workers-1 {
+		if i == w-1 {
 			endY = bounds.Max.Y
 		}
 
@@ -49,26 +69,18 @@ func Grayscale(img image.Image, workers int) *image.RGBA {
 	return result
 }
 
-// Invert applique un négatif de l'image en parallèle.
+// Invert applique un négatif (255 - composante) en parallèle.
 func Invert(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
 
-	height := bounds.Max.Y - bounds.Min.Y
-	if workers > height {
-		workers = height
-	}
-	if workers < 1 {
-		workers = 1
-	}
-	block := height / workers
-
+	w, block, _ := splitWorkers(bounds, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < w; i++ {
 		startY := bounds.Min.Y + i*block
 		endY := startY + block
-		if i == workers-1 {
+		if i == w-1 {
 			endY = bounds.Max.Y
 		}
 
@@ -93,7 +105,14 @@ func Invert(img image.Image, workers int) *image.RGBA {
 	return result
 }
 
-// BOXBlur applique un flou "box blur" de rayon donné (radius >= 1) en parallèle.
+//
+// =========================
+// FILTRES "VOISINAGE"
+// (un pixel de sortie dépend d'un voisinage autour du pixel d'entrée)
+// =========================
+//
+
+// Blur applique un flou "box blur" de rayon donné (radius >= 1) en parallèle.
 // radius = 1 -> ~3x3, radius = 5 -> ~11x11, etc.
 func Blur(img image.Image, workers int, radius int) *image.RGBA {
 	bounds := img.Bounds()
@@ -103,21 +122,13 @@ func Blur(img image.Image, workers int, radius int) *image.RGBA {
 		radius = 1
 	}
 
-	height := bounds.Max.Y - bounds.Min.Y
-	if workers > height {
-		workers = height
-	}
-	if workers < 1 {
-		workers = 1
-	}
-	block := height / workers
-
+	w, block, _ := splitWorkers(bounds, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < w; i++ {
 		startY := bounds.Min.Y + i*block
 		endY := startY + block
-		if i == workers-1 {
+		if i == w-1 {
 			endY = bounds.Max.Y
 		}
 
@@ -149,7 +160,6 @@ func Blur(img image.Image, workers int, radius int) *image.RGBA {
 					}
 
 					if count == 0 {
-						// sécurité : on recopie le pixel original
 						result.Set(x, y, img.At(x, y))
 						continue
 					}
@@ -168,7 +178,7 @@ func Blur(img image.Image, workers int, radius int) *image.RGBA {
 	return result
 }
 
-// Gaussian blur 5*5
+// GaussianBlur applique un flou gaussien 5x5 (rayon 2) en parallèle.
 func GaussianBlur(img image.Image, workers int) *image.RGBA {
 	kernel := [][]float64{
 		{1, 4, 6, 4, 1},
@@ -183,30 +193,29 @@ func GaussianBlur(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
 
-	height := bounds.Max.Y - bounds.Min.Y
-	if workers > height {
-		workers = height
-	}
-	block := height / workers
+	w, block, _ := splitWorkers(bounds, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < w; i++ {
 		wg.Add(1)
 		startY := bounds.Min.Y + i*block
 		endY := startY + block
-		if i == workers-1 {
+		if i == w-1 {
 			endY = bounds.Max.Y
 		}
+
 		go func(startY, endY int) {
 			defer wg.Done()
+
 			for y := startY; y < endY; y++ {
 				for x := bounds.Min.X + radius; x < bounds.Max.X-radius; x++ {
 					var rSum, gSum, bSum float64
+
 					for ky := -radius; ky <= radius; ky++ {
 						for kx := -radius; kx <= radius; kx++ {
 							if y+ky < bounds.Min.Y || y+ky >= bounds.Max.Y ||
 								x+kx < bounds.Min.X || x+kx >= bounds.Max.X {
-								continue // bordures
+								continue
 							}
 							r, g, b, _ := img.At(x+kx, y+ky).RGBA()
 							weight := kernel[ky+radius][kx+radius]
@@ -215,6 +224,7 @@ func GaussianBlur(img image.Image, workers int) *image.RGBA {
 							bSum += float64(b>>8) * weight
 						}
 					}
+
 					out.Set(x, y, color.RGBA{
 						uint8(rSum / kernelSum),
 						uint8(gSum / kernelSum),
@@ -225,10 +235,12 @@ func GaussianBlur(img image.Image, workers int) *image.RGBA {
 			}
 		}(startY, endY)
 	}
+
 	wg.Wait()
 	return out
 }
 
+// Sobel détecte les contours (approx gradient) en parallèle.
 func Sobel(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
@@ -244,30 +256,29 @@ func Sobel(img image.Image, workers int) *image.RGBA {
 		{-1, -2, -1},
 	}
 
-	height := bounds.Max.Y - bounds.Min.Y
-	if workers > height {
-		workers = height
-	}
-	block := height / workers
+	w, block, _ := splitWorkers(bounds, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < w; i++ {
 		wg.Add(1)
 		startY := bounds.Min.Y + i*block
 		endY := startY + block
-		if i == workers-1 {
+		if i == w-1 {
 			endY = bounds.Max.Y
 		}
+
 		go func(startY, endY int) {
 			defer wg.Done()
+
 			for y := startY; y < endY; y++ {
 				for x := bounds.Min.X + 1; x < bounds.Max.X-1; x++ {
 					var sumX, sumY int
+
 					for ky := -1; ky <= 1; ky++ {
 						for kx := -1; kx <= 1; kx++ {
 							if y+ky < bounds.Min.Y || y+ky >= bounds.Max.Y ||
 								x+kx < bounds.Min.X || x+kx >= bounds.Max.X {
-								continue // Bordures safe
+								continue
 							}
 							r, _, _, _ := img.At(x+kx, y+ky).RGBA()
 							gray := int(r >> 8)
@@ -275,41 +286,46 @@ func Sobel(img image.Image, workers int) *image.RGBA {
 							sumY += gray * gy[ky+1][kx+1]
 						}
 					}
+
 					magnitude := uint8(math.Min(
 						255,
 						math.Sqrt(float64(sumX*sumX+sumY*sumY)),
 					))
+
 					out.Set(x, y, color.RGBA{magnitude, magnitude, magnitude, 255})
 				}
 			}
 		}(startY, endY)
 	}
+
 	wg.Wait()
 	return out
 }
 
+// MedianFilter applique un filtre médian 3x3 (réduction du bruit impulsionnel) en parallèle.
 func MedianFilter(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
 
-	height := bounds.Max.Y - bounds.Min.Y
-	block := height / workers
+	w, block, _ := splitWorkers(bounds, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < w; i++ {
 		startY := bounds.Min.Y + i*block
 		endY := startY + block
-		if i == workers-1 {
+		if i == w-1 {
 			endY = bounds.Max.Y
 		}
 
 		wg.Add(1)
 		go func(startY, endY int) {
 			defer wg.Done()
+
 			for y := startY; y < endY; y++ {
 				for x := bounds.Min.X; x < bounds.Max.X; x++ {
 					var reds, greens, blues [9]uint8
 					idx := 0
+
 					for dy := -1; dy <= 1; dy++ {
 						for dx := -1; dx <= 1; dx++ {
 							nx, ny := x+dx, y+dy
@@ -323,6 +339,7 @@ func MedianFilter(img image.Image, workers int) *image.RGBA {
 							idx++
 						}
 					}
+
 					sort.Slice(reds[:], func(i, j int) bool { return reds[i] < reds[j] })
 					sort.Slice(greens[:], func(i, j int) bool { return greens[i] < greens[j] })
 					sort.Slice(blues[:], func(i, j int) bool { return blues[i] < blues[j] })
@@ -332,33 +349,35 @@ func MedianFilter(img image.Image, workers int) *image.RGBA {
 			}
 		}(startY, endY)
 	}
+
 	wg.Wait()
 	return out
 }
 
+// OilPaint applique un effet "peinture à l'huile" (couleur dominante dans un pinceau) en parallèle.
 func OilPaint(img image.Image, workers int, brushSize int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
 
+	if brushSize < 3 {
+		brushSize = 3
+	}
 	radius := brushSize / 2
 
-	height := bounds.Max.Y - bounds.Min.Y
-	if workers > height {
-		workers = height
-	}
-	block := height / workers
+	w, block, _ := splitWorkers(bounds, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < w; i++ {
 		startY := bounds.Min.Y + i*block
 		endY := startY + block
-		if i == workers-1 {
+		if i == w-1 {
 			endY = bounds.Max.Y
 		}
 
 		wg.Add(1)
 		go func(startY, endY int) {
 			defer wg.Done()
+
 			for y := startY; y < endY; y++ {
 				for x := bounds.Min.X; x < bounds.Max.X; x++ {
 					// Histogramme des couleurs dans le pinceau
@@ -401,7 +420,15 @@ func OilPaint(img image.Image, workers int, brushSize int) *image.RGBA {
 	return out
 }
 
-// Pixelate applique un effet mosaïque (pixelation).
+//
+// =========================
+// FILTRES "BLOCS"
+// (on traite des zones rectangulaires, utile pour la mosaïque)
+// =========================
+//
+
+// Pixelate applique un effet mosaïque (pixelation) en parallèle.
+// blockSize = taille des blocs (>= 2).
 func Pixelate(img image.Image, workers int, blockSize int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
@@ -410,21 +437,13 @@ func Pixelate(img image.Image, workers int, blockSize int) *image.RGBA {
 		blockSize = 2
 	}
 
-	height := bounds.Max.Y - bounds.Min.Y
-	if workers > height {
-		workers = height
-	}
-	if workers < 1 {
-		workers = 1
-	}
-	block := height / workers
-
+	w, block, _ := splitWorkers(bounds, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < w; i++ {
 		startY := bounds.Min.Y + i*block
 		endY := startY + block
-		if i == workers-1 {
+		if i == w-1 {
 			endY = bounds.Max.Y
 		}
 
@@ -432,7 +451,7 @@ func Pixelate(img image.Image, workers int, blockSize int) *image.RGBA {
 		go func(startY, endY int) {
 			defer wg.Done()
 
-			// On avance par "pas de bloc" sur Y, ce qui limite le travail redondant.
+			// On avance par pas de blockSize
 			for y := startY; y < endY; y += blockSize {
 				for x := bounds.Min.X; x < bounds.Max.X; x += blockSize {
 
@@ -449,7 +468,6 @@ func Pixelate(img image.Image, workers int, blockSize int) *image.RGBA {
 							count++
 						}
 					}
-
 					if count == 0 {
 						continue
 					}

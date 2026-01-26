@@ -249,3 +249,49 @@ func OilPaintSeq(img image.Image, brushSize int) *image.RGBA {
 	}
 	return out
 }
+
+func PixelateSeq(img image.Image, blockSize int) *image.RGBA {
+	bounds := img.Bounds()
+	out := image.NewRGBA(bounds)
+
+	if blockSize < 2 {
+		blockSize = 2
+	}
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y += blockSize {
+		for x := bounds.Min.X; x < bounds.Max.X; x += blockSize {
+			var sumR, sumG, sumB uint32
+			var count uint32
+
+			// Moyenne bloc
+			for yy := y; yy < y+blockSize && yy < bounds.Max.Y; yy++ {
+				for xx := x; xx < x+blockSize && xx < bounds.Max.X; xx++ {
+					r, g, b, _ := img.At(xx, yy).RGBA()
+					sumR += r >> 8
+					sumG += g >> 8
+					sumB += b >> 8
+					count++
+				}
+			}
+
+			if count == 0 {
+				continue
+			}
+
+			avg := color.RGBA{
+				R: uint8(sumR / count),
+				G: uint8(sumG / count),
+				B: uint8(sumB / count),
+				A: 255,
+			}
+
+			// Remplissage bloc
+			for yy := y; yy < y+blockSize && yy < bounds.Max.Y; yy++ {
+				for xx := x; xx < x+blockSize && xx < bounds.Max.X; xx++ {
+					out.Set(xx, yy, avg)
+				}
+			}
+		}
+	}
+	return out
+}

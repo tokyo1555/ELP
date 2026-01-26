@@ -7,7 +7,6 @@ import (
 	"sort"
 )
 
-// GRAYSCALE
 func GrayscaleSeq(img image.Image) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
@@ -24,7 +23,6 @@ func GrayscaleSeq(img image.Image) *image.RGBA {
 	return result
 }
 
-// INVERT
 func InvertSeq(img image.Image) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
@@ -43,7 +41,6 @@ func InvertSeq(img image.Image) *image.RGBA {
 	return out
 }
 
-// BlurSeq applique un flou "box blur" de manière séquentielle.
 func BlurSeq(img image.Image, radius int) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
@@ -249,6 +246,7 @@ func OilPaintSeq(img image.Image, brushSize int) *image.RGBA {
 	}
 	return out
 }
+
 func PixelateSeq(img image.Image, blockSize int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)

@@ -26,10 +26,10 @@ func bar(ms float64) string {
 }
 
 func main() {
-	fmt.Println("🧪 STUDY 2 – Scaling Workers")
-	fmt.Println("OilPaint filter")
+	fmt.Println("STUDY: Scaling Workers")
+	fmt.Println("SOBEL filter")
 	img := loadImage("input.jpg")
-	workersList := []int{1, 2, 4, 8, 16, 32, 64}
+	workersList := []int{1, 2, 4, 8, 16, 32}
 
 	var tSeq float64
 

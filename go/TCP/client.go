@@ -31,9 +31,8 @@ var filters = []filterInfo{
 }
 
 func main() {
-	// =========================
-	// 1) Choix du fichier d'entrée
-	// =========================
+
+	//choix du fichier d'entrée
 	candidats := []string{"input.jpg", "input.jpeg", "input.png"}
 	inPath := ""
 
@@ -57,9 +56,7 @@ func main() {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	// =========================
-	// 2) Paramètres client
-	// =========================
+	//paramètres client
 	serverAddr := askServer(reader)
 	filterName := askFilter(reader)
 
@@ -75,29 +72,24 @@ func main() {
 
 	workers := askWorkers(reader)
 
-	// =========================
-	// 3) Connexion + requête
-	// =========================
+	//connexion + requête
 	conn, err := net.DialTimeout("tcp", serverAddr, 10*time.Second)
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(120 * time.Second))
 
 	if err := sendRequest(conn, filterName, radius, workers, imgBytes); err != nil {
 		panic(err)
 	}
 
-	// =========================
-	// 4) Réponse + sauvegarde
-	// =========================
+	//réponse + sauvegarde
 	respImg, err := readResponse(conn)
 	if err != nil {
 		panic(err)
 	}
 
-	ext := filepath.Ext(inPath) // on garde la même extension que l'entrée
+	ext := filepath.Ext(inPath) // on garde la meme extension que l'entrée
 	if ext == "" {
 		ext = ".png" // fallback si le fichier n'a pas d'extension
 	}
@@ -109,12 +101,10 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("\n✅ Image reçue et sauvegardée : %s\n", outName)
+	fmt.Printf("\nImage reçue et sauvegardée : %s\n", outName)
 }
 
-// =========================
 // Saisie utilisateur
-// =========================
 func askServer(r *bufio.Reader) string {
 	for {
 		fmt.Println("Conseil : place ton image dans ce dossier (en le nommant input) puis lance client.go avec le nom du fichier.")
@@ -126,7 +116,7 @@ func askServer(r *bufio.Reader) string {
 			continue
 		}
 		if strings.Count(s, ":") < 1 {
-			fmt.Println("❌ Format invalide. Exemple : 192.168.1.10:5000")
+			fmt.Println(" Format invalide. Exemple : 192.168.1.10:5000")
 			continue
 		}
 		return s
@@ -157,7 +147,7 @@ func askWorkers(r *bufio.Reader) int {
 	fmt.Println("\nWorkers (nombre de goroutines côté serveur) :")
 	fmt.Println("  0) Laisser le serveur choisir (recommandé)")
 	fmt.Println("  2, 4, 8, ...) Forcer une valeur")
-	return askInt(r, "Ton choix [0..128] : ", 0, 128)
+	return askInt(r, "Ton choix [0..64] : ", 0, 64)
 }
 
 func askInt(r *bufio.Reader, prompt string, min int, max int) int {
@@ -168,16 +158,14 @@ func askInt(r *bufio.Reader, prompt string, min int, max int) int {
 
 		n, err := strconv.Atoi(s)
 		if err != nil || n < min || n > max {
-			fmt.Printf("❌ Valeur invalide. Entre %d et %d.\n", min, max)
+			fmt.Printf("Valeur invalide. Entre %d et %d.\n", min, max)
 			continue
 		}
 		return n
 	}
 }
 
-// =========================
 // Protocole binaire (client)
-// =========================
 func sendRequest(w io.Writer, filterName string, radius int, workers int, img []byte) error {
 	nameBytes := []byte(filterName)
 

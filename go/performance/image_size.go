@@ -18,7 +18,8 @@ func genImage(size int) image.Image {
 }
 
 func main() {
-	fmt.Println("🧪 STUDY 4 – Taille Image")
+	fmt.Println("STUDY: Taille Image")
+	fmt.Println("Settings: filter = GaussianBlur, workers = 8")
 
 	sizes := []int{512, 1024, 2048}
 	workers := 8

@@ -9,13 +9,7 @@ import (
 	"sync"
 )
 
-//
-// =========================
-// OUTILS COMMUNS
-// =========================
-//
-
-// splitWorkers adapte le nombre de workers à la hauteur de l'image et calcule un découpage par bandes horizontales.
+// splitWorkers adapte le nombre de workers a la hauteur de l'image et calcule un découpage par bandes horizontales
 func splitWorkers(bounds image.Rectangle, workers int) (w int, block int, height int) {
 	height = bounds.Max.Y - bounds.Min.Y
 
@@ -29,14 +23,7 @@ func splitWorkers(bounds image.Rectangle, workers int) (w int, block int, height
 	return workers, block, height
 }
 
-//
-// =========================
-// FILTRES "PIXEL PAR PIXEL"
-// (un pixel de sortie dépend surtout du pixel d'entrée au même endroit)
-// =========================
-//
-
-// Grayscale convertit l'image en niveaux de gris en parallèle.
+// Grayscale convertit l'image en niveaux de gris
 func Grayscale(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
@@ -69,7 +56,7 @@ func Grayscale(img image.Image, workers int) *image.RGBA {
 	return result
 }
 
-// Invert applique un négatif (255 - composante) en parallèle.
+// Invert applique un négatif (255 - composante)
 func Invert(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
@@ -105,15 +92,8 @@ func Invert(img image.Image, workers int) *image.RGBA {
 	return result
 }
 
-//
-// =========================
-// FILTRES "VOISINAGE"
-// (un pixel de sortie dépend d'un voisinage autour du pixel d'entrée)
-// =========================
-//
-
-// Blur applique un flou "box blur" de rayon donné (radius >= 1) en parallèle.
-// radius = 1 -> ~3x3, radius = 5 -> ~11x11, etc.
+// Blur applique un flou "box blur" de rayon donné (radius >= 1)
+// radius = 1 -> ~3x3 ect...
 func Blur(img image.Image, workers int, radius int) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
@@ -178,7 +158,7 @@ func Blur(img image.Image, workers int, radius int) *image.RGBA {
 	return result
 }
 
-// GaussianBlur applique un flou gaussien 5x5 (rayon 2) en parallèle.
+// GaussianBlur applique un flou gaussien 5x5 (rayon 2)
 func GaussianBlur(img image.Image, workers int) *image.RGBA {
 	kernel := [][]float64{
 		{1, 4, 6, 4, 1},
@@ -240,7 +220,7 @@ func GaussianBlur(img image.Image, workers int) *image.RGBA {
 	return out
 }
 
-// Sobel détecte les contours (approx gradient) en parallèle.
+// Sobel détecte les contours (approx gradient)
 func Sobel(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
@@ -302,7 +282,7 @@ func Sobel(img image.Image, workers int) *image.RGBA {
 	return out
 }
 
-// MedianFilter applique un filtre médian 3x3 (réduction du bruit impulsionnel) en parallèle.
+// MedianFilter applique un filtre médian 3x3 (réduction du bruit impulsionnel)
 func MedianFilter(img image.Image, workers int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
@@ -354,7 +334,7 @@ func MedianFilter(img image.Image, workers int) *image.RGBA {
 	return out
 }
 
-// OilPaint applique un effet "peinture à l'huile" (couleur dominante dans un pinceau) en parallèle.
+// OilPaint applique un effet "peinture à l'huile"
 func OilPaint(img image.Image, workers int, brushSize int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
@@ -420,14 +400,7 @@ func OilPaint(img image.Image, workers int, brushSize int) *image.RGBA {
 	return out
 }
 
-//
-// =========================
-// FILTRES "BLOCS"
-// (on traite des zones rectangulaires, utile pour la mosaïque)
-// =========================
-//
-
-// Pixelate applique un effet mosaïque (pixelation) en parallèle.
+// Pixelate applique un effet mosaïque (pixelation)
 // blockSize = taille des blocs (>= 2).
 func Pixelate(img image.Image, workers int, blockSize int) *image.RGBA {
 	bounds := img.Bounds()

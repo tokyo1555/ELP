@@ -1,19 +1,9 @@
-LES DOSSIERS:
+# ELP PROJECTS
 
--filters: Contient les filtres
-         *seq.go* = en sequentiel
-         *parallel.go* = parallel
+This github collects the three main projects of ELP : 
+- ELM : GuessIt
+- Go : Image Filters
+- JavaScript : Flip 7 
 
--TCP: Connexion serveur-client
-      Coté serveur: lancer: *go run server.go parallel.go*
-      Coté client: lancer *go run client.go*
+This projects were done by Farah Gattoufi, Yousra Mounim and Anas Sfar.
 
--performance: Etude de performance
-1. taille de l'image: analyser l’impact de la taille de l’image sur le temps d’exécution des filtres.
-   lancer *go run image_size.go parallel.go seq.go*
-
-2. séquentiel VS parallélisme: comparer le temps d’exécution entre les filtres séquentiels et parallèles.
-   lancer *go run seq_vs_parallel.go parallel.go seq.go*
-
-3. scaling des goroutines : limite du parallélisme et l’influence du nombre de workers sur les performances.
-   lancer *go run scaling_workers.go parallel.go seq.go*

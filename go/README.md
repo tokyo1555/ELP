@@ -1,4 +1,4 @@
-# Immage Filters in Go
+# 🖼️ Immage Filters in Go
 
 This project implements **image processing filters in Go**, both **sequential** and **parallel**, using **goroutines**, a **TCP client–server architecture**, and several **performance analysis programs**.
 
@@ -6,7 +6,7 @@ The goal is to study parallelism, scalability, and performance trade-offs in Go.
 This project was made by Farah Gattoufi, Anas Sfar and Yousra Mounim.
 ---
 
-## Project Structure
+## 📂 Project Structure
 
 ```
 .
@@ -28,7 +28,7 @@ This project was made by Farah Gattoufi, Anas Sfar and Yousra Mounim.
 
 ---
 
-## Available Filters
+## 🎨 Available Filters
 
 - `grayscale` – grayscale conversion  
 - `invert` – color inversion  
@@ -40,10 +40,14 @@ This project was made by Farah Gattoufi, Anas Sfar and Yousra Mounim.
 - `oilpaint` – oil painting effect  
 
 ---
-Important : The image needs to be in the same file as the scripts you want to run.
 ---
 
-## TCP Client–Server Mode
+⚠️ Important : The image needs to be in the same file as the scripts you want to run and called "input".
+
+---
+---
+
+## 🌐 TCP Client–Server Mode
 
 ### Run the server
 
@@ -70,7 +74,7 @@ The client:
 
 ---
 
-## Performance Analysis
+## 📊 Performance Analysis
 
 ### Image size impact
 
@@ -105,3 +109,4 @@ go run scaling_workers.go parallel.go seq.go
 ## Purpose
 
 Academic project exploring parallelism, performance analysis, and TCP communication in Go.
+

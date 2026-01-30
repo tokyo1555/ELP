@@ -36,6 +36,12 @@ node index.js
 - Flip Three → pioche 3 cartes immédiatement
 - Second Chance → annule un doublon (une seule fois)
 
+## 🏆 Flip 7
+Un Flip 7 se produit lorsqu’un joueur obtient 7 valeurs numériques différentes.
+
+Effet :
+- +15 points
+- fin immédiate de la manche
 ## 💾 Sauvegarde
 
 À la fin de chaque manche, les données sont enregistrées dans games.json

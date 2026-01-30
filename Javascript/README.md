@@ -10,8 +10,7 @@ Depuis le dossier du projet :
 node index.js
 ```
 
-
-### Déroulement d’une partie
+## Déroulement d’une partie
 
 1. Le jeu demande le nombre de joueurs (minimum 2).
 2. Une manche démarre automatiquement.
@@ -26,7 +25,18 @@ node index.js
 6. Une nouvelle manche commence.
 7. Le premier joueur atteignant 200 points gagne.
 
-### 💾 Sauvegarde
+## 🃏 Cartes spéciales
+### Modificateurs de score : 
+- +2, +4, +6, +8, +10
+- x2 (double le score de la manche)
+
+### Actions :
+
+- Freeze → score de la manche = 0, joueur éliminé
+- Flip Three → pioche 3 cartes immédiatement
+- Second Chance → annule un doublon (une seule fois)
+
+## 💾 Sauvegarde
 
 À la fin de chaque manche, les données sont enregistrées dans games.json
 L’historique est réinitialisé au lancement d’une nouvelle partie.

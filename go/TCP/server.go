@@ -233,17 +233,11 @@ func ApplyFilter(img image.Image, name string, workers int, radius int) (*image.
 	case "grayscale":
 		return Grayscale(img, workers), nil
 
-	case "invert":
-		return Invert(img, workers), nil
-
 	case "blur":
 		if radius < 1 {
 			radius = 1
 		}
 		return Blur(img, workers, radius), nil
-
-	case "gaussian":
-		return GaussianBlur(img, workers), nil
 
 	case "sobel":
 		return Sobel(img, workers), nil
@@ -257,11 +251,11 @@ func ApplyFilter(img image.Image, name string, workers int, radius int) (*image.
 		}
 		return Pixelate(img, workers, radius), nil
 
-	case "oilpaint":
-		if radius < 3 {
-			radius = 5 // brushSize par défaut
+	case "posterizequantilescolor":
+		if radius < 2 {
+			radius = 4 // levels par défaut
 		}
-		return OilPaint(img, workers, radius), nil
+		return PosterizeQuantilesColor(img, workers, radius), nil
 
 	default:
 		return nil, fmt.Errorf("filtre inconnu.")

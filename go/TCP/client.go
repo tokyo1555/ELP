@@ -20,39 +20,35 @@ type filterInfo struct {
 
 var filters = []filterInfo{
 	{"grayscale", "Convertit l'image en niveaux de gris."},
-	{"invert", "Inverse les couleurs (effet négatif)."},
 	{"blur", "Flou simple (box blur). Plus le rayon est grand, plus c'est flou."},
-	{"gaussian", "Flou gaussien 5x5 (plus doux que blur)."},
 	{"sobel", "Détection de contours (edges) en noir et blanc."},
 	{"median", "Filtre médian 3x3 (réduit le bruit type 'sel et poivre')."},
-	{"oilpaint", "Effet peinture à l'huile (couleur dominante dans un pinceau)."},
 	{"pixelate", "Effet mosaïque (gros pixels)."},
+	{"posterizequantilescolor", "Posterisation par quantiles sur les couleurs."},
 }
 
 func main() {
 
-	// choix du fichier d'entrée
-	candidats := []string{"input.jpg", "input.jpeg", "input.png"}
-	inPath := ""
-
-	for _, p := range candidats {
-		if _, err := os.Stat(p); err == nil {
-			inPath = p
-			break
-		}
-	}
-	if inPath == "" {
-		panic("Aucun fichier trouvé: input.jpg / input.jpeg / input.png")
-	}
-	if len(os.Args) >= 2 {
-		inPath = os.Args[1]
+	// choix du fichier d'entrée : argument obligatoire
+	if len(os.Args) < 2 {
+		fmt.Println("❌ Syntaxe invalide.")
+		fmt.Println("Utilisation : go run client.go <image.jpg/png>")
+		os.Exit(1)
 	}
 
+	inPath := os.Args[1]
+
+	// Vérifie que le fichier existe
+	if _, err := os.Stat(inPath); err != nil {
+		fmt.Printf("❌ Fichier introuvable : %s\n", inPath)
+		os.Exit(1)
+	}
+
+	// Lire l'image
 	imgBytes, err := os.ReadFile(inPath)
 	if err != nil {
-		panic("Impossible de lire l'image. Mets un fichier (ex: input.png) ou lance: go run client.go monimage.png")
+		panic("Impossible de lire l'image.")
 	}
-
 	reader := bufio.NewReader(os.Stdin)
 
 	// paramètres client
@@ -63,10 +59,10 @@ func main() {
 	switch filterName {
 	case "blur":
 		radius = askInt(reader, "Choisis l'intensité du flou (radius >= 1) : ", 1, 999)
-	case "oilpaint":
-		radius = askInt(reader, "Choisis la taille du pinceau (brushSize >= 3) : ", 3, 999)
 	case "pixelate":
 		radius = askInt(reader, "Choisis la taille des blocs mosaïque (block >= 2) : ", 2, 999)
+	case "posterizequantilescolor":
+		radius = askInt(reader, "Choisis le nombre de niveaux de couleur (levels >= 2) : ", 2, 256)
 	}
 
 	workers := askWorkers(reader)
@@ -106,8 +102,7 @@ func main() {
 // Saisie utilisateur
 func askServer(r *bufio.Reader) string {
 	for {
-		fmt.Println("Conseil : place ton image dans ce dossier (en le nommant input) puis lance client.go avec le nom du fichier.")
-		fmt.Print("Entre l'adresse du serveur (IP:PORT) [ex: 192.168.1.10:5000] : ")
+		fmt.Print("Entre l'adresse du serveur (IP:PORT) : ")
 		s, _ := r.ReadString('\n')
 		s = strings.TrimSpace(s)
 

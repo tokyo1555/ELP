@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"sync"
+	"image/draw"
 )
 
 // splitWorkers adapte le nombre de workers a la hauteur de l'image et calcule un découpage par bandes horizontales
@@ -47,42 +48,6 @@ func Grayscale(img image.Image, workers int) *image.RGBA {
 					gray16 := (r + g + b) / 3
 					avg := uint8(gray16 >> 8)
 					result.Set(x, y, color.RGBA{avg, avg, avg, 255})
-				}
-			}
-		}(startY, endY)
-	}
-
-	wg.Wait()
-	return result
-}
-
-// Invert applique un négatif (255 - composante)
-func Invert(img image.Image, workers int) *image.RGBA {
-	bounds := img.Bounds()
-	result := image.NewRGBA(bounds)
-
-	w, block, _ := splitWorkers(bounds, workers)
-	var wg sync.WaitGroup
-
-	for i := 0; i < w; i++ {
-		startY := bounds.Min.Y + i*block
-		endY := startY + block
-		if i == w-1 {
-			endY = bounds.Max.Y
-		}
-
-		wg.Add(1)
-		go func(startY, endY int) {
-			defer wg.Done()
-			for y := startY; y < endY; y++ {
-				for x := bounds.Min.X; x < bounds.Max.X; x++ {
-					r, g, b, _ := img.At(x, y).RGBA()
-					result.Set(x, y, color.RGBA{
-						255 - uint8(r>>8),
-						255 - uint8(g>>8),
-						255 - uint8(b>>8),
-						255,
-					})
 				}
 			}
 		}(startY, endY)
@@ -156,68 +121,6 @@ func Blur(img image.Image, workers int, radius int) *image.RGBA {
 
 	wg.Wait()
 	return result
-}
-
-// GaussianBlur applique un flou gaussien 5x5 (rayon 2)
-func GaussianBlur(img image.Image, workers int) *image.RGBA {
-	kernel := [][]float64{
-		{1, 4, 6, 4, 1},
-		{4, 16, 24, 16, 4},
-		{6, 24, 36, 24, 6},
-		{4, 16, 24, 16, 4},
-		{1, 4, 6, 4, 1},
-	}
-	const kernelSum = 256.0
-	radius := 2
-
-	bounds := img.Bounds()
-	out := image.NewRGBA(bounds)
-
-	w, block, _ := splitWorkers(bounds, workers)
-	var wg sync.WaitGroup
-
-	for i := 0; i < w; i++ {
-		wg.Add(1)
-		startY := bounds.Min.Y + i*block
-		endY := startY + block
-		if i == w-1 {
-			endY = bounds.Max.Y
-		}
-
-		go func(startY, endY int) {
-			defer wg.Done()
-
-			for y := startY; y < endY; y++ {
-				for x := bounds.Min.X + radius; x < bounds.Max.X-radius; x++ {
-					var rSum, gSum, bSum float64
-
-					for ky := -radius; ky <= radius; ky++ {
-						for kx := -radius; kx <= radius; kx++ {
-							if y+ky < bounds.Min.Y || y+ky >= bounds.Max.Y ||
-								x+kx < bounds.Min.X || x+kx >= bounds.Max.X {
-								continue
-							}
-							r, g, b, _ := img.At(x+kx, y+ky).RGBA()
-							weight := kernel[ky+radius][kx+radius]
-							rSum += float64(r>>8) * weight
-							gSum += float64(g>>8) * weight
-							bSum += float64(b>>8) * weight
-						}
-					}
-
-					out.Set(x, y, color.RGBA{
-						uint8(rSum / kernelSum),
-						uint8(gSum / kernelSum),
-						uint8(bSum / kernelSum),
-						255,
-					})
-				}
-			}
-		}(startY, endY)
-	}
-
-	wg.Wait()
-	return out
 }
 
 // Sobel détecte les contours (approx gradient)
@@ -334,72 +237,6 @@ func MedianFilter(img image.Image, workers int) *image.RGBA {
 	return out
 }
 
-// OilPaint applique un effet "peinture à l'huile"
-func OilPaint(img image.Image, workers int, brushSize int) *image.RGBA {
-	bounds := img.Bounds()
-	out := image.NewRGBA(bounds)
-
-	if brushSize < 3 {
-		brushSize = 3
-	}
-	radius := brushSize / 2
-
-	w, block, _ := splitWorkers(bounds, workers)
-	var wg sync.WaitGroup
-
-	for i := 0; i < w; i++ {
-		startY := bounds.Min.Y + i*block
-		endY := startY + block
-		if i == w-1 {
-			endY = bounds.Max.Y
-		}
-
-		wg.Add(1)
-		go func(startY, endY int) {
-			defer wg.Done()
-
-			for y := startY; y < endY; y++ {
-				for x := bounds.Min.X; x < bounds.Max.X; x++ {
-					// Histogramme des couleurs dans le pinceau
-					counts := make(map[color.RGBA]int)
-
-					for dy := -radius; dy <= radius; dy++ {
-						for dx := -radius; dx <= radius; dx++ {
-							nx, ny := x+dx, y+dy
-							if nx >= bounds.Min.X && nx < bounds.Max.X &&
-								ny >= bounds.Min.Y && ny < bounds.Max.Y {
-								r, g, b, _ := img.At(nx, ny).RGBA()
-								c := color.RGBA{
-									R: uint8(r >> 8),
-									G: uint8(g >> 8),
-									B: uint8(b >> 8),
-									A: 255,
-								}
-								counts[c]++
-							}
-						}
-					}
-
-					// Couleur dominante (mode)
-					var mostCommon color.RGBA
-					maxCount := 0
-					for c, count := range counts {
-						if count > maxCount {
-							maxCount = count
-							mostCommon = c
-						}
-					}
-
-					out.Set(x, y, mostCommon)
-				}
-			}
-		}(startY, endY)
-	}
-
-	wg.Wait()
-	return out
-}
-
 // Pixelate applique un effet mosaïque (pixelation)
 // blockSize = taille des blocs (>= 2).
 func Pixelate(img image.Image, workers int, blockSize int) *image.RGBA {
@@ -465,4 +302,160 @@ func Pixelate(img image.Image, workers int, blockSize int) *image.RGBA {
 
 	wg.Wait()
 	return out
+}
+
+// PosterizeQuantilesColor applique une posterization couleur basée sur des quantiles globaux,
+func PosterizeQuantilesColor(img image.Image, workers int, levels int) *image.RGBA {
+	if levels < 2 {
+		levels = 2
+	}
+
+	bounds := img.Bounds()
+	wImg := bounds.Dx()
+	hImg := bounds.Dy()
+
+	// Conversion en RGBA pour accès rapide
+	src := image.NewRGBA(bounds)
+	draw.Draw(src, bounds, img, bounds.Min, draw.Src)
+
+	// 1) Récupérer R,G,B en parallèle (tableaux de taille N)
+	n := wImg * hImg
+	rs := make([]uint8, n)
+	gs := make([]uint8, n)
+	bs := make([]uint8, n)
+
+	w, block, _ := splitWorkers(bounds, workers)
+	var wg sync.WaitGroup
+
+	for i := 0; i < w; i++ {
+		startY := bounds.Min.Y + i*block
+		endY := startY + block
+		if i == w-1 {
+			endY = bounds.Max.Y
+		}
+
+		wg.Add(1)
+		go func(startY, endY int) {
+			defer wg.Done()
+			for y := startY; y < endY; y++ {
+				yy := y - bounds.Min.Y
+				base := yy * wImg
+				for x := bounds.Min.X; x < bounds.Max.X; x++ {
+					xx := x - bounds.Min.X
+					pi := src.PixOffset(x, y)
+					idx := base + xx
+					rs[idx] = src.Pix[pi+0]
+					gs[idx] = src.Pix[pi+1]
+					bs[idx] = src.Pix[pi+2]
+				}
+			}
+		}(startY, endY)
+	}
+	wg.Wait()
+
+	// 2) Tri global (dominant) et LUT par canal
+	sr := make([]uint8, n)
+	sg := make([]uint8, n)
+	sb := make([]uint8, n)
+	copy(sr, rs)
+	copy(sg, gs)
+	copy(sb, bs)
+
+	sort.Slice(sr, func(i, j int) bool { return sr[i] < sr[j] })
+	sort.Slice(sg, func(i, j int) bool { return sg[i] < sg[j] })
+	sort.Slice(sb, func(i, j int) bool { return sb[i] < sb[j] })
+
+	lutR := buildQuantileLUT(sr, levels)
+	lutG := buildQuantileLUT(sg, levels)
+	lutB := buildQuantileLUT(sb, levels)
+
+	// 3) Application parallèle
+	out := image.NewRGBA(bounds)
+
+	for i := 0; i < w; i++ {
+		startY := bounds.Min.Y + i*block
+		endY := startY + block
+		if i == w-1 {
+			endY = bounds.Max.Y
+		}
+
+		wg.Add(1)
+		go func(startY, endY int) {
+			defer wg.Done()
+			for y := startY; y < endY; y++ {
+				yy := y - bounds.Min.Y
+				base := yy * wImg
+				for x := bounds.Min.X; x < bounds.Max.X; x++ {
+					xx := x - bounds.Min.X
+					idx := base + xx
+
+					pi := src.PixOffset(x, y)
+					a := src.Pix[pi+3]
+
+					rq := lutR[rs[idx]]
+					gq := lutG[gs[idx]]
+					bq := lutB[bs[idx]]
+
+					di := out.PixOffset(x, y)
+					out.Pix[di+0] = rq
+					out.Pix[di+1] = gq
+					out.Pix[di+2] = bq
+					out.Pix[di+3] = a
+				}
+			}
+		}(startY, endY)
+	}
+	wg.Wait()
+
+	return out
+}
+
+// buildQuantileLUT construit une table 0..255 -> niveau représentatif basé sur les quantiles.
+func buildQuantileLUT(sortedVals []uint8, levels int) [256]uint8 {
+	var lut [256]uint8
+	n := len(sortedVals)
+
+	if n == 0 || levels < 2 {
+		for v := 0; v < 256; v++ {
+			lut[v] = uint8(v)
+		}
+		return lut
+	}
+	if levels > n {
+		levels = n
+	}
+
+	reps := make([]uint8, levels)
+	binMax := make([]uint8, levels)
+
+	for b := 0; b < levels; b++ {
+		start := b * n / levels
+		end := (b + 1) * n / levels
+		if b == levels-1 {
+			end = n
+		}
+		if end <= start {
+			end = start + 1
+			if end > n {
+				end = n
+				start = n - 1
+			}
+		}
+
+		sum := 0
+		for i := start; i < end; i++ {
+			sum += int(sortedVals[i])
+		}
+		reps[b] = uint8(sum / (end - start))
+		binMax[b] = sortedVals[end-1]
+	}
+
+	b := 0
+	for v := 0; v < 256; v++ {
+		for b < levels-1 && uint8(v) > binMax[b] {
+			b++
+		}
+		lut[v] = reps[b]
+	}
+	return lut
 }

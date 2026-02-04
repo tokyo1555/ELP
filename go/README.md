@@ -108,4 +108,3 @@ go run scaling_workers.go parallel.go seq.go
 ## Purpose
 
 Academic project exploring parallelism, performance analysis, and TCP communication in Go.
-

@@ -19,7 +19,7 @@ func genImage(size int) image.Image {
 
 func main() {
 	fmt.Println("STUDY: Taille Image")
-	fmt.Println("Settings: filter = GaussianBlur, workers = 8")
+	fmt.Println("Settings: filter = Box Blur, radius = 5, workers = 8")
 
 	sizes := []int{512, 1024, 2048}
 	workers := 8
@@ -28,11 +28,11 @@ func main() {
 		img := genImage(s)
 
 		start := time.Now()
-		GaussianBlurSeq(img)
+		Blur(img, 1, 5)
 		tSeq := time.Since(start)
 
 		start = time.Now()
-		GaussianBlur(img, workers)
+		Blur(img, workers, 5)
 		tPar := time.Since(start)
 
 		fmt.Printf("\n%d x %d\n", s, s)

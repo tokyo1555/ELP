@@ -27,7 +27,7 @@ func bar(ms float64) string {
 
 func main() {
 	fmt.Println("STUDY: Scaling Workers")
-	fmt.Println("SOBEL filter")
+	fmt.Println("BLUR filter")
 	img := loadImage("input.jpg")
 	workersList := []int{1, 2, 4, 8, 16, 32}
 
@@ -35,7 +35,7 @@ func main() {
 
 	for _, w := range workersList {
 		start := time.Now()
-		_ = Sobel(img, w)
+		_ = Blur(img, w, 5)
 		t := time.Since(start).Seconds() * 1000
 
 		if w == 1 {

@@ -7,7 +7,6 @@ import (
 	"sort"
 )
 
-// GRAYSCALE
 func GrayscaleSeq(img image.Image) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
@@ -24,26 +23,6 @@ func GrayscaleSeq(img image.Image) *image.RGBA {
 	return result
 }
 
-// INVERT
-func InvertSeq(img image.Image) *image.RGBA {
-	bounds := img.Bounds()
-	out := image.NewRGBA(bounds)
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, b, _ := img.At(x, y).RGBA()
-			out.Set(x, y, color.RGBA{
-				255 - uint8(r>>8),
-				255 - uint8(g>>8),
-				255 - uint8(b>>8),
-				255,
-			})
-		}
-	}
-	return out
-}
-
-// BlurSeq applique un flou "box blur" de manière séquentielle.
 func BlurSeq(img image.Image, radius int) *image.RGBA {
 	bounds := img.Bounds()
 	result := image.NewRGBA(bounds)
@@ -88,46 +67,6 @@ func BlurSeq(img image.Image, radius int) *image.RGBA {
 	}
 
 	return result
-}
-
-func GaussianBlurSeq(img image.Image) *image.RGBA {
-	kernel := [][]float64{
-		{1, 4, 6, 4, 1},
-		{4, 16, 24, 16, 4},
-		{6, 24, 36, 24, 6},
-		{4, 16, 24, 16, 4},
-		{1, 4, 6, 4, 1},
-	}
-	const kernelSum = 256.0
-	radius := 2
-
-	bounds := img.Bounds()
-	out := image.NewRGBA(bounds)
-
-	for y := bounds.Min.Y + radius; y < bounds.Max.Y-radius; y++ {
-		for x := bounds.Min.X + radius; x < bounds.Max.X-radius; x++ {
-
-			var rSum, gSum, bSum float64
-
-			for ky := -radius; ky <= radius; ky++ {
-				for kx := -radius; kx <= radius; kx++ {
-					r, g, b, _ := img.At(x+kx, y+ky).RGBA()
-					weight := kernel[ky+radius][kx+radius]
-					rSum += float64(r>>8) * weight
-					gSum += float64(g>>8) * weight
-					bSum += float64(b>>8) * weight
-				}
-			}
-
-			out.Set(x, y, color.RGBA{
-				uint8(rSum / kernelSum),
-				uint8(gSum / kernelSum),
-				uint8(bSum / kernelSum),
-				255,
-			})
-		}
-	}
-	return out
 }
 
 func SobelSeq(img image.Image) *image.RGBA {
@@ -204,51 +143,7 @@ func MedianFilterSeq(img image.Image) *image.RGBA {
 		}
 	}
 	return out
-}
 
-func OilPaintSeq(img image.Image, brushSize int) *image.RGBA {
-	bounds := img.Bounds()
-	out := image.NewRGBA(bounds)
-
-	radius := brushSize / 2
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			// Histogramme des couleurs dans le pinceau
-			counts := make(map[color.RGBA]int)
-
-			for dy := -radius; dy <= radius; dy++ {
-				for dx := -radius; dx <= radius; dx++ {
-					nx, ny := x+dx, y+dy
-					if nx >= bounds.Min.X && nx < bounds.Max.X &&
-						ny >= bounds.Min.Y && ny < bounds.Max.Y {
-						r, g, b, _ := img.At(nx, ny).RGBA()
-						c := color.RGBA{
-							R: uint8(r >> 8),
-							G: uint8(g >> 8),
-							B: uint8(b >> 8),
-							A: 255,
-						}
-						counts[c]++
-					}
-				}
-			}
-
-			// Couleur la plus fréquente (mode)
-			var mostCommon color.RGBA
-			maxCount := 0
-			for c, count := range counts {
-				if count > maxCount {
-					maxCount = count
-					mostCommon = c
-				}
-			}
-
-			out.Set(x, y, mostCommon)
-		}
-	}
-	return out
-}
 func PixelateSeq(img image.Image, blockSize int) *image.RGBA {
 	bounds := img.Bounds()
 	out := image.NewRGBA(bounds)
@@ -292,5 +187,85 @@ func PixelateSeq(img image.Image, blockSize int) *image.RGBA {
 			}
 		}
 	}
+	return out
+}
+
+// PosterizeQuantilesColorSeq : version séquentielle de la posterization couleur
+// basée sur des quantiles globaux appliqués séparément à R, G et B.
+// levels = nombre de niveaux par canal (>=2)
+// Complexité : O(N log N) (tri des valeurs R, G, B)
+func PosterizeQuantilesColorSeq(img image.Image, levels int) *image.RGBA {
+	if levels < 2 {
+		levels = 2
+	}
+
+	bounds := img.Bounds()
+	wImg := bounds.Dx()
+	hImg := bounds.Dy()
+	n := wImg * hImg
+
+	// Conversion en RGBA
+	src := image.NewRGBA(bounds)
+	draw.Draw(src, bounds, img, bounds.Min, draw.Src)
+
+	// 1) Extraire R, G, B
+	rs := make([]uint8, n)
+	gs := make([]uint8, n)
+	bs := make([]uint8, n)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		yy := y - bounds.Min.Y
+		base := yy * wImg
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			xx := x - bounds.Min.X
+			pi := src.PixOffset(x, y)
+			idx := base + xx
+			rs[idx] = src.Pix[pi+0]
+			gs[idx] = src.Pix[pi+1]
+			bs[idx] = src.Pix[pi+2]
+		}
+	}
+
+	// 2) Trier chaque canal
+	sr := make([]uint8, n)
+	sg := make([]uint8, n)
+	sb := make([]uint8, n)
+	copy(sr, rs)
+	copy(sg, gs)
+	copy(sb, bs)
+
+	sort.Slice(sr, func(i, j int) bool { return sr[i] < sr[j] })
+	sort.Slice(sg, func(i, j int) bool { return sg[i] < sg[j] })
+	sort.Slice(sb, func(i, j int) bool { return sb[i] < sb[j] })
+
+	lutR := buildQuantileLUT(sr, levels)
+	lutG := buildQuantileLUT(sg, levels)
+	lutB := buildQuantileLUT(sb, levels)
+
+	// 3) Appliquer les LUT
+	out := image.NewRGBA(bounds)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		yy := y - bounds.Min.Y
+		base := yy * wImg
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			xx := x - bounds.Min.X
+			idx := base + xx
+
+			pi := src.PixOffset(x, y)
+			a := src.Pix[pi+3]
+
+			rq := lutR[rs[idx]]
+			gq := lutG[gs[idx]]
+			bq := lutB[bs[idx]]
+
+			di := out.PixOffset(x, y)
+			out.Pix[di+0] = rq
+			out.Pix[di+1] = gq
+			out.Pix[di+2] = bq
+			out.Pix[di+3] = a
+		}
+	}
+
 	return out
 }

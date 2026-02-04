@@ -33,16 +33,15 @@ This project was made by Farah Gattoufi, Anas Sfar and Yousra Mounim.
 - `grayscale` – grayscale conversion  
 - `invert` – color inversion  
 - `blur` – box blur  
-- `gaussian` – gaussian blur  
 - `sobel` – edge detection  
 - `median` – median filter  
 - `pixelate` – mosaic effect  
-- `oilpaint` – oil painting effect  
+- `PosterizeQuantilesColor` – color posterization effect  
 
 ---
 ---
 
-⚠️ Important : The image needs to be in the same file as the scripts you want to run and called "input".
+⚠️ Important : The image needs to be in the same file as the scripts you want to run.
 
 ---
 ---
@@ -64,7 +63,7 @@ go run server.go parallel.go
 ### Run the client
 
 ```bash
-go run client.go
+go run client.gov *name of the image*
 ```
 
 The client:
